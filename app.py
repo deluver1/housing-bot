@@ -149,15 +149,25 @@ def check_and_notify():
         print("[{}] No lotteries fetched".format(datetime.now()), flush=True)
         return
 
-    new_count = 0
+    new_lotteries = []
     for lot in lotteries:
         lid = str(lot.get("lotteryId", ""))
         if lid and lid not in seen and lid not in notified_ids:
-            send_telegram(format_lottery(lot))
-            notified_ids.add(lid)
-            new_count += 1
-            print("  -> New: {} {}".format(lid, (lot.get("lotteryName") or "").strip()), flush=True)
-            time.sleep(1)
+            new_lotteries.append(lot)
+
+    if len(new_lotteries) > 5:
+        print("[{}] Too many new ({}) - likely stale seen data, skipping".format(datetime.now(), len(new_lotteries)), flush=True)
+        last_check = {"time": str(datetime.now()), "active": len(lotteries), "new": 0, "seen": len(seen), "skipped": len(new_lotteries)}
+        return
+
+    new_count = 0
+    for lot in new_lotteries:
+        lid = str(lot.get("lotteryId", ""))
+        send_telegram(format_lottery(lot))
+        notified_ids.add(lid)
+        new_count += 1
+        print("  -> New: {} {}".format(lid, (lot.get("lotteryName") or "").strip()), flush=True)
+        time.sleep(1)
 
     last_check = {"time": str(datetime.now()), "active": len(lotteries), "new": new_count, "seen": len(seen)}
     print("[{}] Active: {}, New: {}, Seen: {}".format(datetime.now(), len(lotteries), new_count, len(seen)), flush=True)
