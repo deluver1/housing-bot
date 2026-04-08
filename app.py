@@ -21,21 +21,20 @@ HC_SEARCH_BODY = {
     "HouseholdSize": None, "Income": "", "HouseholdType": 1, "OwnerTypes": [],
     "PreferanceTypes": [], "LotteryTypes": [], "Min": None, "Max": None, "RentalSubsidy": None
 }
-SEEN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seen_lotteries.json")
+SEEN_URL = "https://raw.githubusercontent.com/deluver1/housing-bot/master/seen_lotteries.json"
 
 last_check = {"time": None, "active": 0, "new": 0, "seen": 0}
+notified_ids = set()
 
 
 def load_seen():
-    if os.path.exists(SEEN_FILE):
-        with open(SEEN_FILE, "r") as f:
-            return set(json.load(f))
-    return set()
-
-
-def save_seen(seen):
-    with open(SEEN_FILE, "w") as f:
-        json.dump(sorted(seen), f)
+    try:
+        resp = requests.get(SEEN_URL, timeout=15)
+        resp.raise_for_status()
+        return set(resp.json())
+    except Exception as e:
+        print("[ERROR] Load seen from GitHub: {}".format(e), flush=True)
+        return set()
 
 
 def send_telegram(text):
@@ -142,34 +141,24 @@ def format_lottery(lot):
 def check_and_notify():
     global last_check
     seen = load_seen()
-    first_run = len(seen) == 0
+    if not seen:
+        print("[{}] Could not load seen from GitHub, skipping".format(datetime.now()), flush=True)
+        return
     lotteries = fetch_active_lotteries()
     if not lotteries:
         print("[{}] No lotteries fetched".format(datetime.now()), flush=True)
         return
 
-    if first_run:
-        print("First run - saving {} lotteries silently".format(len(lotteries)), flush=True)
-        for lot in lotteries:
-            lid = str(lot.get("lotteryId", ""))
-            if lid:
-                seen.add(lid)
-        save_seen(seen)
-        send_telegram("\u2705 <b>Housing Connect Bot started!</b>" + chr(10) + "Monitoring {} active lotteries...".format(len(lotteries)))
-        last_check = {"time": str(datetime.now()), "active": len(lotteries), "new": 0, "seen": len(seen)}
-        return
-
     new_count = 0
     for lot in lotteries:
         lid = str(lot.get("lotteryId", ""))
-        if lid and lid not in seen:
+        if lid and lid not in seen and lid not in notified_ids:
             send_telegram(format_lottery(lot))
-            seen.add(lid)
+            notified_ids.add(lid)
             new_count += 1
             print("  -> New: {} {}".format(lid, (lot.get("lotteryName") or "").strip()), flush=True)
             time.sleep(1)
 
-    save_seen(seen)
     last_check = {"time": str(datetime.now()), "active": len(lotteries), "new": new_count, "seen": len(seen)}
     print("[{}] Active: {}, New: {}, Seen: {}".format(datetime.now(), len(lotteries), new_count, len(seen)), flush=True)
 

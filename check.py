@@ -154,7 +154,6 @@ def main():
     for lot in lotteries:
         lid = str(lot.get("lotteryId", ""))
         if lid and lid not in seen:
-            send_telegram(format_lottery(lot))
             seen.add(lid)
             new_count += 1
             print("New: {} {}".format(lid, (lot.get("lotteryName") or "").strip()))
