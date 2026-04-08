@@ -21,7 +21,7 @@ HC_SEARCH_BODY = {
     "HouseholdSize": None, "Income": "", "HouseholdType": 1, "OwnerTypes": [],
     "PreferanceTypes": [], "LotteryTypes": [], "Min": None, "Max": None, "RentalSubsidy": None
 }
-SEEN_URL = "https://raw.githubusercontent.com/deluver1/housing-bot/master/seen_lotteries.json"
+SEEN_API_URL = "https://api.github.com/repos/deluver1/housing-bot/contents/seen_lotteries.json"
 
 last_check = {"time": None, "active": 0, "new": 0, "seen": 0}
 notified_ids = set()
@@ -29,7 +29,7 @@ notified_ids = set()
 
 def load_seen():
     try:
-        resp = requests.get(SEEN_URL, timeout=15)
+        resp = requests.get(SEEN_API_URL, headers={"Accept": "application/vnd.github.v3.raw"}, timeout=15)
         resp.raise_for_status()
         return set(resp.json())
     except Exception as e:
