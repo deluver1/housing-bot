@@ -22,6 +22,7 @@ HC_SEARCH_BODY = {
     "PreferanceTypes": [], "LotteryTypes": [], "Min": None, "Max": None, "RentalSubsidy": None
 }
 SEEN_API_URL = "https://api.github.com/repos/deluver1/housing-bot/contents/seen_lotteries.json"
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 last_check = {"time": None, "active": 0, "new": 0, "seen": 0}
 notified_ids = set()
@@ -29,9 +30,14 @@ notified_ids = set()
 
 def load_seen():
     try:
-        resp = requests.get(SEEN_API_URL, headers={"Accept": "application/vnd.github.v3.raw"}, timeout=15)
+        headers = {"Accept": "application/vnd.github.v3.raw"}
+        if GITHUB_TOKEN:
+            headers["Authorization"] = "Bearer " + GITHUB_TOKEN
+        resp = requests.get(SEEN_API_URL, headers=headers, timeout=15)
         resp.raise_for_status()
-        return set(resp.json())
+        seen = set(resp.json())
+        print("[INFO] Loaded {} seen IDs from GitHub".format(len(seen)), flush=True)
+        return seen
     except Exception as e:
         print("[ERROR] Load seen from GitHub: {}".format(e), flush=True)
         return set()
