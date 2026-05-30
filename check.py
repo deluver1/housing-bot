@@ -6,6 +6,7 @@ import requests
 import json
 import os
 import sys
+import time
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_IDS = os.environ.get("TELEGRAM_CHAT_IDS", "").split(",")
@@ -54,21 +55,24 @@ def send_telegram(text):
 
 
 def fetch_active_lotteries():
-    try:
-        resp = requests.post(HC_API_URL, json=HC_SEARCH_BODY, headers={"Content-Type": "application/json"}, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        all_lotteries = []
-        for lot in data.get("rentals", []):
-            lot["_type"] = "Rental"
-            all_lotteries.append(lot)
-        for lot in data.get("sales", []):
-            lot["_type"] = "Sale"
-            all_lotteries.append(lot)
-        return all_lotteries
-    except Exception as e:
-        print("[ERROR] Fetch: {}".format(e))
-        return []
+    for attempt in range(1, 4):
+        try:
+            resp = requests.post(HC_API_URL, json=HC_SEARCH_BODY, headers={"Content-Type": "application/json"}, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            all_lotteries = []
+            for lot in data.get("rentals", []):
+                lot["_type"] = "Rental"
+                all_lotteries.append(lot)
+            for lot in data.get("sales", []):
+                lot["_type"] = "Sale"
+                all_lotteries.append(lot)
+            return all_lotteries
+        except Exception as e:
+            print("[WARN] Fetch attempt {}/3 failed: {}".format(attempt, e))
+            if attempt < 3:
+                time.sleep(10)
+    return []
 
 
 def format_lottery(lot):
@@ -138,8 +142,8 @@ def main():
 
     lotteries = fetch_active_lotteries()
     if not lotteries:
-        print("No lotteries fetched")
-        sys.exit(1)
+        print("No lotteries fetched, skipping this cycle")
+        return
 
     if first_run:
         print("First run - saving {} lotteries silently".format(len(lotteries)))
